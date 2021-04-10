@@ -1,0 +1,28 @@
+#+TITLE: helm-symbol-hint
+
+Show symbol hint for helm.
+
+This project was inspired by [[https://github.com/emacs-helm/helm/blob/4f16ec21f5ac4d0b9e36768c27abd453a959388d/helm-utils.el#L1037][helm-popup-tip-mode]].
+
+* Installing
+
+#+begin_src emacs-lisp
+(quelpa '(helm-symbol-hint
+          :repo "twlz0ne/helm-symbol-hint"
+          :fetcher github
+          :files ("*.el")))
+#+end_src
+
+* Usage
+
+Just =M-x helm-symbol-hint-mode RET=.
+
+** Options
+
+- =helm-symbol-hint-delay= (default =0.5=)
+
+  Seconds to wait before start timer.
+
+- =helm-symbol-hint-popup-p= (default =t=)
+
+  Non-nil show hint in popup, otherwish show help in echo area.
