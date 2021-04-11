@@ -116,11 +116,14 @@
     (setq helm-symbol-hint--timer
           (run-with-timer
            helm-symbol-hint-delay nil
-           (lambda (selection)
+           (lambda ()
              (when helm-alive-p
                (save-selected-window
                  (with-helm-window
-                   (let ((doc (helm-symbol-hint-1 selection)))
+                   (when-let*
+                       ((selection (helm-current-line-contents))
+                        (not-empty-p (not (string-empty-p selection)))
+                        (doc (helm-symbol-hint-1 selection)))
                      (if helm-symbol-hint-popup-p
                          (popup-tip
                           (propertize (concat " ; " doc)
@@ -129,8 +132,7 @@
                           :around nil
                           :point (save-excursion
                                    (end-of-visual-line) (point)))
-                       (eldoc-message doc)))))))
-           (helm-current-line-contents)))))
+                       (eldoc-message doc)))))))))))
 
 (define-minor-mode helm-symbol-hint-mode
   "Show symbol hint for helm."
