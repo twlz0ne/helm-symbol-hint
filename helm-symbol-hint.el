@@ -49,7 +49,7 @@
 ;;
 ;; - =helm-symbol-hint-popup-p= (default =t=)
 ;;
-;;   Non-nil show hint in popup, otherwish show help in echo area.
+;;   Non-nil show hint in popup, otherwish show hint in echo area.
 
 ;;; Change Log:
 
@@ -72,7 +72,7 @@
   "A list of helm buffers where need show symbol hint.")
 
 (defvar helm-symbol-hint-popup-p t
-  "Non-nil show hint in popup, otherwish show help in echo area.")
+  "Non-nil show hint in popup, otherwish show hint in echo area.")
 
 (defvar helm-symbol-hint-delay 0.5
   "Seconds to wait before start timer.")
@@ -100,19 +100,19 @@
             (elisp--docstring-first-line doc))
           "No document"))))
 
-(defun help-symbol-help-cancel-timer ()
+(defun helm-symbol-hint-cancel-timer ()
   "Cancle the symbol hint timer."
   (when helm-symbol-hint--timer
     (cancel-timer helm-symbol-hint--timer)
     (setq helm-symbol-hint--timer nil)))
 
-(defun help-symbol-help-start-timer ()
+(defun helm-symbol-hint-start-timer ()
   "Start the symbol hint timer."
   (when (and helm-alive-p
              helm-symbol-hint-mode
              (member (assoc-default 'name (helm-get-current-source))
                      helm-symbol-hint-buffers))
-    (help-symbol-help-cancel-timer)
+    (helm-symbol-hint-cancel-timer)
     (setq helm-symbol-hint--timer
           (run-with-timer
            helm-symbol-hint-delay nil
@@ -137,10 +137,10 @@
   :global t
   (if helm-symbol-hint-mode
       (progn
-        (add-hook 'helm-move-selection-after-hook 'help-symbol-help-start-timer)
-        (add-hook 'helm-cleanup-hook 'help-symbol-help-cancel-timer))
-    (remove-hook 'helm-move-selection-after-hook 'help-symbol-help-start-timer)
-    (remove-hook 'helm-cleanup-hook 'help-symbol-help-cancel-timer)))
+        (add-hook 'helm-move-selection-after-hook 'helm-symbol-hint-start-timer)
+        (add-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer))
+    (remove-hook 'helm-move-selection-after-hook 'helm-symbol-hint-start-timer)
+    (remove-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)))
 
 (provide 'helm-symbol-hint)
 

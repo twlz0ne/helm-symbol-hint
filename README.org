@@ -25,4 +25,4 @@ Just =M-x helm-symbol-hint-mode RET=.
 
 - =helm-symbol-hint-popup-p= (default =t=)
 
-  Non-nil show hint in popup, otherwish show help in echo area.
+  Non-nil show hint in popup, otherwish show hint in echo area.
