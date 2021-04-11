@@ -98,13 +98,20 @@
             (elisp-get-fnsym-args-string symbol)))
       (or (let ((doc (documentation-property symbol 'variable-documentation t)))
             (elisp--docstring-first-line doc))
-          "No document"))))
+          "Not documented."))))
 
 (defun helm-symbol-hint-cancel-timer ()
   "Cancle the symbol hint timer."
   (when helm-symbol-hint--timer
     (cancel-timer helm-symbol-hint--timer)
     (setq helm-symbol-hint--timer nil)))
+
+(defvar helm-symbol-hint-indicator
+  (propertize
+   " " 'face `(:foreground ,(face-background 'helm-symbol-hint-face nil t)
+                :background ,(face-background 'helm-selection)
+                :slant italic))
+  "String to indicate the hint.")
 
 (defun helm-symbol-hint-start-timer ()
   "Start the symbol hint timer."
@@ -123,16 +130,22 @@
                    (when-let*
                        ((selection (helm-current-line-contents))
                         (not-empty-p (not (string-empty-p selection)))
-                        (doc (helm-symbol-hint-1 selection)))
+                        (hint (replace-regexp-in-string
+                               ;; function: (ARG) --> (fn ARG)
+                               (if window-system
+                                   (concat "^" selection ": (")
+                                 "^(")
+                               "(fn " (helm-symbol-hint-1 selection))))
                      (if helm-symbol-hint-popup-p
                          (popup-tip
-                          (propertize (concat " ; " doc)
-                                      'face 'helm-symbol-hint-face)
+                          (concat helm-symbol-hint-indicator
+                                  (propertize " " 'face nil)
+                                  (propertize hint 'face 'helm-symbol-hint-face))
                           :nostrip t
                           :around nil
                           :point (save-excursion
                                    (end-of-visual-line) (point)))
-                       (eldoc-message doc)))))))))))
+                       (eldoc-message hint)))))))))))
 
 (define-minor-mode helm-symbol-hint-mode
   "Show symbol hint for helm."
