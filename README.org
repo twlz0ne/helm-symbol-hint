@@ -1,10 +1,12 @@
 #+TITLE: helm-symbol-hint
 
-Show symbol hint for helm.
+[[https://github.com/twlz0ne/helm-symbol-hint/actions?query=workflow%3ACI][file:https://github.com/twlz0ne/helm-symbol-hint/workflows/CI/badge.svg]]
+
+Show symbol hint for Helm.
 
 This project was inspired by [[https://github.com/emacs-helm/helm/blob/4f16ec21f5ac4d0b9e36768c27abd453a959388d/helm-utils.el#L1037][helm-popup-tip-mode]].
 
-* Installing
+* Installation
 
 #+begin_src emacs-lisp
 (quelpa '(helm-symbol-hint

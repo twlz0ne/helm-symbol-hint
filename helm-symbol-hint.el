@@ -1,11 +1,11 @@
-;;; helm-symbol-hint.el --- Show symbol hint for helm -*- lexical-binding: t; -*-
+;;; helm-symbol-hint.el --- Show symbol hint for Helm -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2021 Gong Qijian <gongqijian@gmail.com>
 
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2021/04/10
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "24.4") (popup "0.5.8") (helm "3.6.2"))
+;; Package-Requires: ((emacs "25.1") (popup "0.5.8") (helm "3.6.2"))
 ;; URL: https://github.com/twlz0ne/helm-symbol-hint
 ;; Keywords: tools
 
@@ -136,7 +136,7 @@
              (when helm-alive-p
                (save-selected-window
                  (with-helm-window
-                   (when-let*
+                   (when-let
                        ((selection (helm-current-line-contents))
                         (not-empty-p (not (string-empty-p selection)))
                         (hint (helm-symbol-hint-1 selection)))
