@@ -57,6 +57,7 @@
 
 ;;; Code:
 
+(require 'subr-x)
 (require 'popup)
 (require 'helm)
 
@@ -82,7 +83,7 @@
 
 (defun helm-symbol-hint-1 (symbol-name)
   "Return useful one-line documentation of SYMBOL-NAME."
-  (let* ((symbol (if (symbolp symbol-name) symbol-name (intern symbol-name))))
+  (let* ((symbol (intern symbol-name)))
     (if (fboundp symbol)
         (let ((doc (documentation symbol t)))
           (if doc
@@ -90,12 +91,20 @@
                 (insert doc)
                 (goto-char (point-min))
                 (while (search-forward-regexp
-                        "^This function has :.* advice: .*$" nil t))
+                        (concat "^"
+                                (when (<= 27 emacs-major-version)
+                                  "This function has ")
+                                ":.* advice: .*\n\n") nil t))
                 (string-trim-right
                  (elisp--docstring-first-line
                   (string-trim-left
                    (buffer-substring (point) (point-max))))))
-            (elisp-get-fnsym-args-string symbol)))
+            ;; function: (ARG) --> (fn ARG)
+            (replace-regexp-in-string (if (<= 28 emacs-major-version)
+                                          "^(\\(fn\s?\\)?"
+                                        (concat "^" symbol-name ": ("))
+                                      "(fn "
+                                      (elisp-get-fnsym-args-string symbol))))
       (or (let ((doc (documentation-property symbol 'variable-documentation t)))
             (elisp--docstring-first-line doc))
           "Not documented."))))
@@ -130,12 +139,7 @@
                    (when-let*
                        ((selection (helm-current-line-contents))
                         (not-empty-p (not (string-empty-p selection)))
-                        (hint (replace-regexp-in-string
-                               ;; function: (ARG) --> (fn ARG)
-                               (if window-system
-                                   (concat "^" selection ": (")
-                                 "^(")
-                               "(fn " (helm-symbol-hint-1 selection))))
+                        (hint (helm-symbol-hint-1 selection)))
                      (if helm-symbol-hint-popup-p
                          (popup-tip
                           (concat helm-symbol-hint-indicator
