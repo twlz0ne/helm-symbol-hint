@@ -81,24 +81,27 @@
 (defvar helm-symbol-hint--timer nil
   "Timer of helm symbol hint.")
 
+(defvar helm-symbol-hint-advice-re
+  (rx bos (1+ (seq
+               ;; 27 or newer
+               (? "This function has ")
+               ;; see ‘advice--where-alist’
+               (| ":before" ":before-until" ":before-while"
+                  ":around" ":override" ":filter-args" ":filter-return"
+                  ":after" ":after-until" ":after-while")
+               " advice: " (0+ nonl) "\n"))
+      "\n")
+  "Regexp to match the advice in documentation.")
+
 (defun helm-symbol-hint-1 (symbol-name)
   "Return useful one-line documentation of SYMBOL-NAME."
   (let* ((symbol (intern symbol-name)))
     (if (fboundp symbol)
         (let ((doc (documentation symbol t)))
-          (if doc
-              (with-temp-buffer
-                (insert doc)
-                (goto-char (point-min))
-                (while (search-forward-regexp
-                        (concat "^"
-                                (when (<= 27 emacs-major-version)
-                                  "This function has ")
-                                ":.* advice: .*\n\n") nil t))
-                (string-trim-right
-                 (elisp--docstring-first-line
-                  (string-trim-left
-                   (buffer-substring (point) (point-max))))))
+          (if (and doc (not (string-empty-p doc)))
+              (elisp--docstring-first-line
+               (string-trim-left
+                (replace-regexp-in-string helm-symbol-hint-advice-re "" doc)))
             ;; function: (ARG) --> (fn ARG)
             (replace-regexp-in-string (if (<= 28 emacs-major-version)
                                           "^(\\(fn\s?\\)?"
