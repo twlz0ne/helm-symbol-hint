@@ -93,6 +93,20 @@
       "\n")
   "Regexp to match the advice in documentation.")
 
+(defcustom helm-symbol-hint-style 'grid
+  "Specifics how the symbol hint display."
+  :group 'helm-symbol-hint
+  :type '(choice
+          (const :tag "Show all symbol hints at once" grid)
+          (const :tag "Show current symbol hint in popup" popup)
+          (const :tag "Show current symbol hint in echo area" echo)))
+
+(defvar helm-symbol-hint-grid-spec
+  '(0.3 . helm-buffer-size)
+  "Specification of symbol hint grid.
+It is in the form of (SYMBOL-WIDTH . HINT-FACE).  SYMBOL-WIDTH is a float number
+from 0.0 to 1.0 meas the percentage of the window width.")
+
 (defun helm-symbol-hint-1 (symbol-name)
   "Return useful one-line documentation of SYMBOL-NAME."
   (let* ((symbol (intern symbol-name)))
@@ -127,41 +141,120 @@
 
 (defun helm-symbol-hint-start-timer ()
   "Start the symbol hint timer."
+  (helm-symbol-hint-cancel-timer)
+  (setq helm-symbol-hint--timer
+        (run-with-timer
+         helm-symbol-hint-delay nil
+         (lambda ()
+           (when helm-alive-p
+             (save-selected-window
+               (with-helm-window
+                 (when-let
+                     ((sym-str (helm-symbol-hint--current-symbol-name))
+                      (not-empty-p (not (string-empty-p sym-str)))
+                      (hint (helm-symbol-hint-1 (string-trim-right sym-str))))
+                   (if (equal helm-symbol-hint-style 'popup)
+                       (popup-tip
+                        (concat helm-symbol-hint-indicator
+                                (propertize " " 'face nil)
+                                (propertize hint 'face 'helm-symbol-hint-face))
+                        :nostrip t
+                        :around nil
+                        :point (save-excursion
+                                 (end-of-visual-line) (point)))
+                     (eldoc-message hint))))))))))
+
+(defun helm-symbol-hint--show-all ()
+  "Show all symbol hints."
+  (let* ((face (cdr helm-symbol-hint-grid-spec))
+         (sym-width
+          (round (* (car helm-symbol-hint-grid-spec) (window-width))))
+         (hint-width (- (window-width) sym-width))
+         (init-p (or (and (= (point-max) (window-end))
+                          (= (point-min) (window-start)))
+                     (and (not this-command)
+                          (memq last-command '(self-insert-command yank)))))
+         (draw-down-p (not (memq this-command
+                                 '(helm-previous-line helm-previous-page
+                                   helm-end-of-buffer))))
+         (line-move-step (if draw-down-p 1 -1))
+         (point-at-edge-p
+          (if init-p nil
+            (<= (if draw-down-p
+                    (- (line-number-at-pos (window-end)) (line-number-at-pos))
+                  (- (line-number-at-pos) (line-number-at-pos (window-start))))
+                1)))
+         (page-update-p (or init-p
+                            point-at-edge-p
+                            (not (memq this-command '(helm-next-line
+                                                      helm-previous-line)))))
+         (max (if point-at-edge-p
+                  (1+ (/ (window-height) 2))
+                (window-height)))
+         (num 0))
+    (when page-update-p
+      (save-excursion
+        (catch 'break
+          (while (< num max)
+            (cl-incf num)
+            (when-let ((not-header-p (not (helm-pos-header-line-p) ))
+                       (sym-str (helm-symbol-hint--current-symbol-name))
+                       (not-empty-p (not (string-empty-p sym-str))))
+              (unless (equal ?\s (char-before (point-at-eol)))
+                (add-text-properties
+                 (point-at-bol) (point-at-eol) (list 'helm-realvalue sym-str))
+                (goto-char (point-at-eol))
+                (let* ((padding-width
+                        (- sym-width (- (point-at-eol) (point-at-bol) 1)))
+                       (hint
+                        (truncate-string-to-width
+                         (helm-symbol-hint-1 sym-str) hint-width nil nil "…")))
+                  (if (< 1 padding-width)
+                      (insert (make-string padding-width ?\s))
+                    (add-text-properties
+                     (point-at-eol) (point-at-bol)
+                     (list 'display
+                           (propertize
+                            (truncate-string-to-width
+                             sym-str (- sym-width 1) nil nil "…"))))
+                    (insert "  "))
+                  (put-text-property
+                   (- (point) 1) (point)
+                   'display (propertize hint 'face face)))))
+            (unless (zerop (forward-line line-move-step))
+              (throw 'break nil))))))))
+
+(defun helm-symbol-hint--show-hint ()
+  "Function to be used in `helm-move-selection-after-hook' to show hint."
   (when (and helm-alive-p
              helm-symbol-hint-mode
              (member (assoc-default 'name (helm-get-current-source))
                      helm-symbol-hint-buffers))
-    (helm-symbol-hint-cancel-timer)
-    (setq helm-symbol-hint--timer
-          (run-with-timer
-           helm-symbol-hint-delay nil
-           (lambda ()
-             (when helm-alive-p
-               (save-selected-window
-                 (with-helm-window
-                   (when-let
-                       ((selection (helm-current-line-contents))
-                        (not-empty-p (not (string-empty-p selection)))
-                        (hint (helm-symbol-hint-1 selection)))
-                     (if helm-symbol-hint-popup-p
-                         (popup-tip
-                          (concat helm-symbol-hint-indicator
-                                  (propertize " " 'face nil)
-                                  (propertize hint 'face 'helm-symbol-hint-face))
-                          :nostrip t
-                          :around nil
-                          :point (save-excursion
-                                   (end-of-visual-line) (point)))
-                       (eldoc-message hint)))))))))))
+    (if (equal helm-symbol-hint-style 'grid)
+        (helm-symbol-hint--show-all)
+      (helm-symbol-hint-start-timer))))
+
+(defun helm-symbol-hint--prepare ()
+  "Function to be used in `helm-update-hook' to do some preparations."
+  (setq-local truncate-lines t))
+
+(defun helm-symbol-hint--current-symbol-name ()
+  "Return the name of current selected symbol."
+  (or (get-text-property (point-at-bol) 'helm-realvalue)
+      (replace-regexp-in-string
+       "\\([^\s]+\\).*" "\\1"
+       (buffer-substring-no-properties (point-at-bol) (point-at-eol)))))
 
 (define-minor-mode helm-symbol-hint-mode
   "Show symbol hint for helm."
   :global t
   (if helm-symbol-hint-mode
       (progn
-        (add-hook 'helm-move-selection-after-hook 'helm-symbol-hint-start-timer)
+        (add-hook 'helm-update-hook #'helm-symbol-hint--prepare)
+        (add-hook 'helm-move-selection-after-hook 'helm-symbol-hint--show-hint)
         (add-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer))
-    (remove-hook 'helm-move-selection-after-hook 'helm-symbol-hint-start-timer)
+    (remove-hook 'helm-update-hook #'helm-symbol-hint--prepare)
+    (remove-hook 'helm-move-selection-after-hook 'helm-symbol-hint--show-hint)
     (remove-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)))
 
 (provide 'helm-symbol-hint)
