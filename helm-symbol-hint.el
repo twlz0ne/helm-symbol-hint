@@ -192,7 +192,15 @@ from 0.0 to 1.0 meas the percentage of the window width.")
          (max (if point-at-edge-p
                   (1+ (/ (window-height) 2))
                 (window-height)))
-         (num 0))
+         (num 0)
+         key-str
+         (check-hint-fn
+          (lambda (point)
+            (and (equal ?\s (char-before point))
+                 (when-let ((disp (get-text-property (1- point) 'display)))
+                   (if (equal (get-text-property 0 'face disp) 'helm-M-x-key)
+                       (progn (setq key-str disp) nil)
+                     t))))))
     (when page-update-p
       (save-excursion
         (catch 'break
@@ -203,13 +211,18 @@ from 0.0 to 1.0 meas the percentage of the window width.")
             (when-let ((not-header-p (not (helm-pos-header-line-p) ))
                        (sym-str (helm-symbol-hint--current-symbol-name))
                        (not-empty-p (not (string-empty-p sym-str))))
-              (unless (equal ?\s (char-before (point-at-eol)))
+              (setq key-str nil)
+              (unless (funcall check-hint-fn (point-at-eol))
                 (add-text-properties
                  (point-at-bol) (point-at-eol) (list 'helm-realvalue sym-str))
                 (goto-char (point-at-eol))
-                (let* ((padding-width
-                        (- sym-width (- (point-at-eol) (point-at-bol) 1)))
-                       (hint (helm-symbol-hint-1 sym-str)))
+                (let* ((hint (helm-symbol-hint-1 sym-str))
+                       (disp (if key-str
+                                 (concat sym-str "  " key-str)
+                               (helm-symbol-hint--current-symbol-display)))
+                       (padding-width (- sym-width
+                                         (if key-str (1- (length key-str)) 0)
+                                         (- (point-at-eol) (point-at-bol) 1))))
                   (if (< 1 padding-width)
                       (insert (make-string padding-width ?\s))
                     (add-text-properties
@@ -217,7 +230,7 @@ from 0.0 to 1.0 meas the percentage of the window width.")
                      (list 'display
                            (propertize
                             (truncate-string-to-width
-                             sym-str (- sym-width 1) nil nil "…"))))
+                             disp (- sym-width 1) nil nil "…"))))
                     (insert "  "))
                   (put-text-property
                    (- (point) 1) (point)
@@ -260,6 +273,10 @@ from 0.0 to 1.0 meas the percentage of the window width.")
       (replace-regexp-in-string
        "\\([^\s]+\\).*" "\\1"
        (buffer-substring-no-properties (point-at-bol) (point-at-eol)))))
+
+(defun helm-symbol-hint--current-symbol-display ()
+  "Return the display of current selected symbol."
+  (buffer-substring (point-at-bol) (point-at-eol)))
 
 (define-minor-mode helm-symbol-hint-mode
   "Show symbol hint for helm."
