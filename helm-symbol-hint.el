@@ -177,11 +177,11 @@ from 0.0 to 1.0 meas the percentage of the window width."
                      (eldoc-message hint))))))))))
 
 (defun helm-symbol-hint--show-all (&optional scroll-p)
-  "Show all symbol hints."
+  "Show all symbol hints.
+If SCROLL-P not nil, consider as mouse wheel scrolling."
   (let* ((face (cdr helm-symbol-hint-grid-spec))
          (sym-width
           (round (* (car helm-symbol-hint-grid-spec) (window-width))))
-         (hint-width (- (window-width) sym-width))
          (init-p (or (and (= (point-max) (window-end))
                           (= (point-min) (window-start)))
                      (and (not this-command)
@@ -251,9 +251,9 @@ from 0.0 to 1.0 meas the percentage of the window width."
               (throw 'break nil))))))))
 
 (defun helm-symbol-hint--show-hint (&optional scroll-p)
-  "Function to be used in `helm-move-selection-after-hook' to show hint."
+  "Function to be used in `helm-move-selection-after-hook' to show hint.
+If SCROLL-P not nil, consider as mouse wheel scrolling."
   (when (and helm-alive-p
-             helm-symbol-hint-mode
              (member (assoc-default 'name (helm-get-current-source))
                      helm-symbol-hint-buffers))
     (with-helm-window
@@ -262,7 +262,9 @@ from 0.0 to 1.0 meas the percentage of the window width."
         (helm-symbol-hint--show-current)))))
 
 (defun helm-symbol-hint--window-scroll (window start)
-  "Function to be used in `window-scroll-functions'."
+  "Function to be used in `window-scroll-functions'.
+WINDOW is the window where the mouse scrolling.  START is the starting position
+of the window."
   (when (equal window (helm-window))
     (with-helm-window
       (let ((last-start helm-symbol-hint--last-window-start))
@@ -271,9 +273,8 @@ from 0.0 to 1.0 meas the percentage of the window width."
           (helm-symbol-hint--show-hint t))))))
 
 (defun helm-symbol-hint--prepare ()
-  "Function to be used in `helm-update-hook' to do some preparations."
+  "Function to be used in `helm-after-update-hook' to do some preparations."
   (when (and helm-alive-p
-             helm-symbol-hint-mode
              (member (assoc-default 'name (helm-get-current-source))
                      helm-symbol-hint-buffers))
     (with-helm-buffer
@@ -290,16 +291,17 @@ from 0.0 to 1.0 meas the percentage of the window width."
   "Return the display of current selected symbol."
   (buffer-substring (point-at-bol) (point-at-eol)))
 
+;;;###autoload
 (define-minor-mode helm-symbol-hint-mode
   "Show symbol hint for helm."
   :global t
   (if helm-symbol-hint-mode
       (progn
-        (add-hook 'helm-update-hook #'helm-symbol-hint--prepare)
+        (add-hook 'helm-after-update-hook #'helm-symbol-hint--prepare)
         (add-hook 'helm-move-selection-after-hook 'helm-symbol-hint--show-hint)
         (add-hook 'window-scroll-functions 'helm-symbol-hint--window-scroll)
         (add-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer))
-    (remove-hook 'helm-update-hook #'helm-symbol-hint--prepare)
+    (remove-hook 'helm-after-update-hook #'helm-symbol-hint--prepare)
     (remove-hook 'helm-move-selection-after-hook 'helm-symbol-hint--show-hint)
     (remove-hook 'window-scroll-functions 'helm-symbol-hint--window-scroll)
     (remove-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)))
