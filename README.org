@@ -4,8 +4,6 @@
 
 Show symbol hint for Helm.
 
-This project was inspired by [[https://github.com/emacs-helm/helm/blob/4f16ec21f5ac4d0b9e36768c27abd453a959388d/helm-utils.el#L1037][helm-popup-tip-mode]].
-
 * Installation
 
 #+begin_src emacs-lisp
@@ -19,12 +17,30 @@ This project was inspired by [[https://github.com/emacs-helm/helm/blob/4f16ec21f
 
 Just =M-x helm-symbol-hint-mode RET=.
 
-** Options
+* Customization
+
+- =helm-symbol-hint-style= (default =grid=)
+
+  Specify how the symbol hint display.
+
+  - =grid= Show all symbol hints at once.
+
+    [[file:./images/grid.png]]
+
+  - =popup= Show current symbol hint in popup.
+
+    [[file:./images/popup.png]]
+
+  - =echo= Show current symbol hint in echo area.
+
+    [[file:./images/echo.png]]
 
 - =helm-symbol-hint-delay= (default =0.5=)
 
-  Seconds to wait before start timer.
+  Seconds to wait before start popup/echo timer.
 
-- =helm-symbol-hint-popup-p= (default =t=)
+- =helm-symbol-hint-grid-spec= (defualt =(0.3 . helm-buffer-size)=)
 
-  Non-nil show hint in popup, otherwish show hint in echo area.
+  Specification of symbol hint grid.
+  It is in the form of (SYMBOL-WIDTH . HINT-FACE).  SYMBOL-WIDTH is a float
+  number from 0.0 to 1.0 meas the percentage of the window width.
