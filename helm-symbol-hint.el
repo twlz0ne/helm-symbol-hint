@@ -26,8 +26,6 @@
 
 ;; Show symbol hint for helm.
 ;;
-;; This project was inspired by [[https://github.com/emacs-helm/helm/blob/4f16ec21f5ac4d0b9e36768c27abd453a959388d/helm-utils.el#L1037][helm-popup-tip-mode]].
-;;
 ;; * Installing
 ;;
 ;; #+begin_src emacs-lisp
@@ -41,15 +39,25 @@
 ;;
 ;; Just =M-x helm-symbol-hint-mode RET=.
 ;;
-;; ** Options
+;; * Customization
+;;
+;; - =helm-symbol-hint-style= (default =grid=)
+;;
+;;   Specify how the symbol hint display.
+;;
+;;   - =grid= Show all symbol hints at once.
+;;   - =popup= Show current symbol hint in popup.
+;;   - =echo= Show current symbol hint in echo area.
 ;;
 ;; - =helm-symbol-hint-delay= (default =0.5=)
 ;;
-;;   Seconds to wait before start timer.
+;;   Seconds to wait before start popup/echo timer.
 ;;
-;; - =helm-symbol-hint-popup-p= (default =t=)
+;; - =helm-symbol-hint-grid-spec= (defualt =(0.3 . helm-buffer-size)=)
 ;;
-;;   Non-nil show hint in popup, otherwish show hint in echo area.
+;;   Specification of symbol hint grid.
+;;   It is in the form of (SYMBOL-WIDTH . HINT-FACE).  SYMBOL-WIDTH is a float
+;;   number from 0.0 to 1.0 meas the percentage of the window width.
 
 ;;; Change Log:
 
@@ -72,8 +80,10 @@
                                    "describe-variable")
   "A list of helm buffers where need show symbol hint.")
 
-(defvar helm-symbol-hint-delay 0.5
-  "Seconds to wait before start timer.")
+(defcustom helm-symbol-hint-delay 0.5
+  "Seconds to wait before start popup/echo timer."
+  :group 'helm-symbol-hint
+  :type 'float)
 
 (defvar helm-symbol-hint--timer nil
   "Timer of helm symbol hint.")
@@ -94,18 +104,20 @@
   "Regexp to match the advice in documentation.")
 
 (defcustom helm-symbol-hint-style 'grid
-  "Specifics how the symbol hint display."
+  "Specify how the symbol hint display."
   :group 'helm-symbol-hint
   :type '(choice
           (const :tag "Show all symbol hints at once" grid)
           (const :tag "Show current symbol hint in popup" popup)
           (const :tag "Show current symbol hint in echo area" echo)))
 
-(defvar helm-symbol-hint-grid-spec
+(defcustom helm-symbol-hint-grid-spec
   '(0.3 . helm-buffer-size)
   "Specification of symbol hint grid.
 It is in the form of (SYMBOL-WIDTH . HINT-FACE).  SYMBOL-WIDTH is a float number
-from 0.0 to 1.0 meas the percentage of the window width.")
+from 0.0 to 1.0 meas the percentage of the window width."
+  :group 'helm-symbol-hint
+  :type 'cons)
 
 (defun helm-symbol-hint-1 (symbol-name)
   "Return useful one-line documentation of SYMBOL-NAME."
