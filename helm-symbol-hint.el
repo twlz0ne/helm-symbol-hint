@@ -76,11 +76,15 @@
 
 (defvar helm-symbol-hint-source-method-alist
   '(("Emacs Commands history" . helm-symbol-hint--symbol-summary)
-    ("Emacs Commands" . helm-symbol-hint--symbol-summary)
-    ("describe-function" . helm-symbol-hint--symbol-summary)
-    ("describe-variable" . helm-symbol-hint--symbol-summary)
-    ("describe-package" . helm-symbol-hint--package-summary))
-  "A list of (HELM-SOURCE . HINT-METHOD).")
+    ("Emacs Commands"         . helm-symbol-hint--symbol-summary)
+    ("describe-function"      . helm-symbol-hint--symbol-summary)
+    ("describe-variable"      . helm-symbol-hint--symbol-summary)
+    ("describe-command"       . helm-symbol-hint--symbol-summary)
+    ("describe-package"       . helm-symbol-hint--package-summary)
+    ("package-install"        . helm-symbol-hint--package-summary)
+    ("package-reinstall"      . helm-symbol-hint--package-summary)
+    ("package-delete"         . helm-symbol-hint--installed-package-summary))
+  "A list of (HELM-SOURCE . SUMMARY-METHOD).")
 
 (defcustom helm-symbol-hint-delay 0.5
   "Seconds to wait before start popup/echo timer."
