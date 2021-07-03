@@ -53,16 +53,16 @@
 
 ;;; tests
 
-(ert-deftest helm-symbol-hint-test-1 ()
-  (should (equal "Not documented."      (helm-symbol-hint-1 "var-not-documented")))
-  (should (equal "(fn )"                (helm-symbol-hint-1 "fn-not-documented")))
-  (should (equal "(fn ARG1)"            (helm-symbol-hint-1 "fn-not-documented-1")))
-  (should (equal "(fn ARG1 ARG2)"       (helm-symbol-hint-1 "fn-not-documented-2")))
-  (should (equal "(fn ARG1 ARG2 ARG3)"  (helm-symbol-hint-1 "fn-not-documented-3")))
-  (should (equal "This is a Function"   (helm-symbol-hint-1 "fn-documented")))
-  (should (equal "This is a Function 1" (helm-symbol-hint-1 "fn-documented-1")))
-  (should (equal "This is a Function 2" (helm-symbol-hint-1 "fn-documented-2")))
-  (should (equal "This is a Function 3" (helm-symbol-hint-1 "fn-documented-3")))
+(ert-deftest helm-symbol-hint-test--symbol-summary ()
+  (should (equal "Not documented."      (helm-symbol-hint--symbol-summary "var-not-documented")))
+  (should (equal "(fn )"                (helm-symbol-hint--symbol-summary "fn-not-documented")))
+  (should (equal "(fn ARG1)"            (helm-symbol-hint--symbol-summary "fn-not-documented-1")))
+  (should (equal "(fn ARG1 ARG2)"       (helm-symbol-hint--symbol-summary "fn-not-documented-2")))
+  (should (equal "(fn ARG1 ARG2 ARG3)"  (helm-symbol-hint--symbol-summary "fn-not-documented-3")))
+  (should (equal "This is a Function"   (helm-symbol-hint--symbol-summary "fn-documented")))
+  (should (equal "This is a Function 1" (helm-symbol-hint--symbol-summary "fn-documented-1")))
+  (should (equal "This is a Function 2" (helm-symbol-hint--symbol-summary "fn-documented-2")))
+  (should (equal "This is a Function 3" (helm-symbol-hint--symbol-summary "fn-documented-3")))
 
   ;; full document
   (should (string-match-p "\
@@ -77,7 +77,38 @@ This is a Function" (documentation 'fn-documented t)))
 This is a Function" (documentation 'fn-documented t)))
 
   ;; still get correct hint
-  (should (equal "This is a Function" (helm-symbol-hint-1 "fn-documented"))))
+  (should (equal "This is a Function" (helm-symbol-hint--symbol-summary "fn-documented"))))
+
+(ert-deftest helm-symbol-hint-test--package-summary ()
+  (require 'package)
+  (package-initialize)
+  (let ((install-pkg
+         (lambda (pkg doc)
+           (with-temp-buffer
+             (insert
+              (format ";;; %s.el --- %s -*- lexical-binding: t -*-
+
+                       ;; Copyright (C) 2011 Free Software Foundation, Inc.
+
+                       ;; Author: John Doe <johndoe@example.com>
+                       ;; Version: 1.0
+                       ;; Package-Requires: ((emacs \"25.1\"))
+                       ;; Keywords: tools
+                       ;; URL: https://example.com/johndoe/%s
+
+                       ;;; Commentary:
+
+                       ;; Example package
+
+                       (provide '%s)
+                       ;;; %s.el ends here "
+                      pkg doc pkg pkg pkg))
+             (indent-region (point-min) (point-max))
+             (package-install-from-buffer)))))
+    (funcall install-pkg 'nodoc "")
+    (funcall install-pkg 'hasdoc "Package summary"))
+  (should (equal (helm-symbol-hint--package-summary "nodoc") "Not documented."))
+  (should (equal (helm-symbol-hint--package-summary "hasdoc") "Package summary")))
 
 (provide 'helm-symbol-hint-test)
 
