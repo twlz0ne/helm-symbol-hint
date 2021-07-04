@@ -80,6 +80,7 @@
     ("describe-function"      . helm-symbol-hint--symbol-summary)
     ("describe-variable"      . helm-symbol-hint--symbol-summary)
     ("describe-command"       . helm-symbol-hint--symbol-summary)
+    ("completion-at-point"    . helm-symbol-hint--symbol-summary)
     ("describe-package"       . helm-symbol-hint--package-summary)
     ("package-install"        . helm-symbol-hint--package-summary)
     ("package-reinstall"      . helm-symbol-hint--package-summary)
@@ -317,6 +318,12 @@ of the window."
        "\\([^\s]+\\).*" "\\1"
        (buffer-substring-no-properties (point-at-bol) (point-at-eol)))))
 
+(defun helm-symbol-hint--string-trim-right (str)
+  "Remove trailing spaces of STR for `completion-at-point'."
+  (if (stringp str)
+      (string-trim-right str)
+    str))
+
 (defun helm-symbol-hint--current-symbol-display ()
   "Return the display of current selected symbol."
   (buffer-substring (point-at-bol) (point-at-eol)))
@@ -328,13 +335,18 @@ of the window."
   (if helm-symbol-hint-mode
       (progn
         (add-hook 'helm-after-update-hook #'helm-symbol-hint--prepare)
+        (add-hook 'helm-minibuffer-set-up-hook 'helm-symbol-hint--show-hint)
         (add-hook 'helm-move-selection-after-hook 'helm-symbol-hint--show-hint)
         (add-hook 'window-scroll-functions 'helm-symbol-hint--window-scroll)
-        (add-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer))
+        (add-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)
+        (advice-add 'helm-get-selection :filter-return
+                    'helm-symbol-hint--string-trim-right))
     (remove-hook 'helm-after-update-hook #'helm-symbol-hint--prepare)
+    (remove-hook 'helm-minibuffer-set-up-hook 'helm-symbol-hint--show-hint)
     (remove-hook 'helm-move-selection-after-hook 'helm-symbol-hint--show-hint)
     (remove-hook 'window-scroll-functions 'helm-symbol-hint--window-scroll)
-    (remove-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)))
+    (remove-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)
+    (advice-remove 'helm-get-selection 'helm-symbol-hint--string-trim-right)))
 
 (provide 'helm-symbol-hint)
 
