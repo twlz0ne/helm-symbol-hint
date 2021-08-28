@@ -215,9 +215,10 @@ from 0.0 to 1.0 meas the percentage of the window width."
 If SCROLL-P not nil, consider as mouse wheel scrolling."
   (let* ((face (cdr helm-symbol-hint-grid-spec))
          (hint-method (helm-symbol-hint--hint-method))
+         (window-end (if (< (window-end) 0) (1+ (buffer-size)) (window-end)))
          (sym-width
           (round (* (car helm-symbol-hint-grid-spec) (window-width))))
-         (init-p (or (and (= (point-max) (window-end))
+         (init-p (or (and (= (point-max) window-end)
                           (= (point-min) (window-start)))
                      (and (not this-command)
                           (memq last-command '(self-insert-command yank)))))
@@ -229,7 +230,7 @@ If SCROLL-P not nil, consider as mouse wheel scrolling."
          (point-at-edge-p
           (if init-p nil
             (<= (if draw-down-p
-                    (- (line-number-at-pos (window-end)) (line-number-at-pos))
+                    (- (line-number-at-pos window-end) (line-number-at-pos))
                   (- (line-number-at-pos) (line-number-at-pos (window-start))))
                 1)))
          (page-update-p (or init-p
@@ -291,7 +292,8 @@ If SCROLL-P not nil, consider as mouse wheel scrolling."
   (when (and helm-alive-p (helm-symbol-hint--hint-method))
     (with-helm-window
       (if (equal helm-symbol-hint-style 'grid)
-          (helm-symbol-hint--show-all scroll-p)
+          (unless (zerop (buffer-size))
+            (helm-symbol-hint--show-all scroll-p))
         (helm-symbol-hint--show-current)))))
 
 (defun helm-symbol-hint--window-scroll (window start)
