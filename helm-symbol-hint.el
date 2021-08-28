@@ -316,8 +316,7 @@ of the window."
 (defun helm-symbol-hint--current-symbol-name ()
   "Return the name of current selected symbol."
   (or (get-text-property (point-at-bol) 'helm-realvalue)
-      (replace-regexp-in-string
-       "\\([^\s]+\\).*" "\\1"
+      (string-trim-right
        (buffer-substring-no-properties (point-at-bol) (point-at-eol)))))
 
 (defun helm-symbol-hint--string-trim-right (str)
