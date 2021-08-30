@@ -321,7 +321,7 @@ of the window."
 
 (defun helm-symbol-hint--string-trim-right (str)
   "Remove trailing spaces of STR for `completion-at-point'."
-  (if (stringp str)
+  (if (and (stringp str) (helm-symbol-hint--hint-method))
       (string-trim-right str)
     str))
 
