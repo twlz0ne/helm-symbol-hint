@@ -81,6 +81,7 @@
     ("describe-variable"      . helm-symbol-hint--symbol-summary)
     ("describe-command"       . helm-symbol-hint--symbol-summary)
     ("completion-at-point"    . helm-symbol-hint--symbol-summary)
+    ("Imenu"                  . helm-symbol-hint--imenu-function-hint)
     ("describe-package"       . helm-symbol-hint--package-summary)
     ("package-install"        . helm-symbol-hint--package-summary)
     ("package-reinstall"      . helm-symbol-hint--package-summary)
@@ -149,6 +150,22 @@ from 0.0 to 1.0 meas the percentage of the window width."
       (or (let ((doc (documentation-property symbol 'variable-documentation t)))
             (elisp--docstring-first-line doc))
           "Not documented."))))
+
+(defun helm-symbol-hint--imenu-function-hint (menu-item)
+  "Return hint of function that MENU-ITEM pointed to."
+  (let ((generic (cl--generic (intern menu-item))))
+    (if generic
+        (let ((point (marker-position (get-text-property 0 'position menu-item))))
+          (with-current-buffer helm-current-buffer
+            (save-excursion
+              (goto-char point)
+              (format "%s" (nth 2 (sexp-at-point)))))))))
+
+(defun helm-symbol-hint--advice-around-imen-action (fn candidate)
+  "Advice around `helm-imen-action' (FN) to restore the CANDIDATE."
+  (funcall fn (if (stringp candidate)
+                  (cons candidate (get-text-property 0 'position candidate))
+                candidate)))
 
 (defun helm-symbol-hint--package-summary (package-name)
   "Return summary of PACKAGE-NAME."
@@ -264,13 +281,13 @@ If SCROLL-P not nil, consider as mouse wheel scrolling."
                 (add-text-properties
                  (point-at-bol) (point-at-eol) (list 'helm-realvalue sym-str))
                 (goto-char (point-at-eol))
-                (let* ((hint (funcall hint-method sym-str))
-                       (disp (if key-str
-                                 (concat sym-str "  " key-str)
-                               (helm-symbol-hint--current-symbol-display)))
-                       (padding-width (- sym-width
-                                         (if key-str (1- (length key-str)) 0)
-                                         (- (point-at-eol) (point-at-bol) 1))))
+                (when-let* ((hint (funcall hint-method sym-str))
+                            (disp (if key-str
+                                      (concat sym-str "  " key-str)
+                                    (helm-symbol-hint--current-symbol-display)))
+                            (padding-width (- sym-width
+                                              (if key-str (1- (length key-str)) 0)
+                                              (- (point-at-eol) (point-at-bol) 1))))
                   (if (< 1 padding-width)
                       (insert (make-string padding-width ?\s))
                     (add-text-properties
@@ -315,9 +332,14 @@ of the window."
 
 (defun helm-symbol-hint--current-symbol-name ()
   "Return the name of current selected symbol."
-  (or (get-text-property (point-at-bol) 'helm-realvalue)
-      (string-trim-right
-       (buffer-substring-no-properties (point-at-bol) (point-at-eol)))))
+  (let ((v (get-text-property (point-at-bol) 'helm-realvalue)))
+    (cond ((null v)
+           (string-trim-right
+            (buffer-substring-no-properties (point-at-bol) (point-at-eol))))
+          ((stringp v) v)
+          ((and (consp v) (stringp (car v))) ;; Imenu item
+           (propertize (car v) 'position (cdr v)))
+          (t (error "Unknown helm-realvalue: %s" v)))))
 
 (defun helm-symbol-hint--string-trim-right (str)
   "Remove trailing spaces of STR for `completion-at-point'."
@@ -341,13 +363,17 @@ of the window."
         (add-hook 'window-scroll-functions 'helm-symbol-hint--window-scroll)
         (add-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)
         (advice-add 'helm-get-selection :filter-return
-                    'helm-symbol-hint--string-trim-right))
+                    'helm-symbol-hint--string-trim-right)
+        (advice-add 'helm-imenu-action
+                    :around #'helm-symbol-hint--advice-around-imen-action))
     (remove-hook 'helm-after-update-hook #'helm-symbol-hint--prepare)
     (remove-hook 'helm-minibuffer-set-up-hook 'helm-symbol-hint--show-hint)
     (remove-hook 'helm-move-selection-after-hook 'helm-symbol-hint--show-hint)
     (remove-hook 'window-scroll-functions 'helm-symbol-hint--window-scroll)
     (remove-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)
-    (advice-remove 'helm-get-selection 'helm-symbol-hint--string-trim-right)))
+    (advice-remove 'helm-get-selection 'helm-symbol-hint--string-trim-right)
+    (advice-remove 'helm-imenu-action
+                   #'helm-symbol-hint--advice-around-imen-action)))
 
 (provide 'helm-symbol-hint)
 
