@@ -71,10 +71,20 @@ This is a Function" (documentation 'fn-documented t)))
   (advice-add 'fn-documented :before #'fn-advice)
 
   ;; full document changed by advice
-  (should (string-match-p "\
+  (should (string-match-p
+           (if (<= emacs-major-version 27)
+               "\
 \\(This function has \\)?:before advice: ‘fn-advice’\\.?
 
-This is a Function" (documentation 'fn-documented t)))
+This is a Function
+
+(fn)"
+             "\
+This is a Function
+
+\\(This function has \\)?:before advice: ‘fn-advice’\\.?
+
+(fn)") (documentation 'fn-documented t)))
 
   ;; still get correct hint
   (should (equal "This is a Function" (helm-symbol-hint--symbol-summary "fn-documented"))))
