@@ -127,8 +127,30 @@ from 0.0 to 1.0 meas the percentage of the window width."
   :group 'helm-symbol-hint
   :type 'cons)
 
+(defvar helm-symbol-hint-imenu-type-alist '((emacs-lisp-mode defadvice
+                                                             define-advice
+                                                             cl-defgeneric
+                                                             defgeneric
+                                                             cl-defmethod
+                                                             defmethod))
+  "An alist specifying which type of symbol hint will be displayed.
+
+Each element of it is in the form of (MAJOR-MODE . TYPE-LIST), e.g.:
+
+    (emacs-lisp-mode . (defadvice
+                        define-advice
+                        cl-defgeneric
+                        defgeneric
+                        cl-defmethod
+                        defmethod))")
+
+(defvar-local helm-symbol-hint--current-imenu-types nil "Current imenu types.")
+
 (defun helm-symbol-hint--hint-method ()
   "Return hint method of current source."
+  (setq helm-symbol-hint--current-imenu-types
+        (with-current-buffer helm-current-buffer
+          (cdr (assq major-mode helm-symbol-hint-imenu-type-alist))))
   (assoc-default (assoc-default 'name (helm-get-current-source))
                  helm-symbol-hint-source-method-alist))
 
@@ -153,13 +175,16 @@ from 0.0 to 1.0 meas the percentage of the window width."
 
 (defun helm-symbol-hint--imenu-function-hint (menu-item)
   "Return hint of function that MENU-ITEM pointed to."
-  (let ((generic (cl--generic (intern menu-item))))
-    (if generic
-        (let ((point (marker-position (get-text-property 0 'position menu-item))))
-          (with-current-buffer helm-current-buffer
-            (save-excursion
-              (goto-char point)
-              (format "%s" (nth 2 (sexp-at-point)))))))))
+  (when helm-symbol-hint--current-imenu-types
+    (let* ((types helm-symbol-hint--current-imenu-types)
+           (point (marker-position (get-text-property 0 'position menu-item)))
+           (sexp (with-current-buffer helm-current-buffer
+                   (when types
+                     (save-excursion
+                       (goto-char point)
+                       (sexp-at-point))))))
+      (when (and (consp sexp) (memq (nth 0 sexp) types))
+        (format "%s" (nth 2 sexp))))))
 
 (defun helm-symbol-hint--advice-around-imen-action (fn candidate)
   "Advice around `helm-imen-action' (FN) to restore the CANDIDATE."
