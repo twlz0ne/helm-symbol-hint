@@ -187,7 +187,7 @@ Each element of it is in the form of (MAJOR-MODE . TYPE-LIST), e.g.:
         (format "%s" (nth 2 sexp))))))
 
 (defun helm-symbol-hint--advice-around-imenu-action (fn candidate)
-  "Advice around `helm-imen-action' (FN) to restore the CANDIDATE."
+  "Advice around `helm-imenu-action' (FN) to restore the CANDIDATE."
   (funcall fn (if (stringp candidate)
                   (cons candidate (get-text-property 0 'position candidate))
                 candidate)))
@@ -390,6 +390,8 @@ of the window."
         (advice-add 'helm-get-selection :filter-return
                     'helm-symbol-hint--string-trim-right)
         (advice-add 'helm-imenu-action
+                    :around #'helm-symbol-hint--advice-around-imenu-action)
+        (advice-add 'helm-imenu-persistent-action
                     :around #'helm-symbol-hint--advice-around-imenu-action))
     (remove-hook 'helm-after-update-hook #'helm-symbol-hint--prepare)
     (remove-hook 'helm-minibuffer-set-up-hook 'helm-symbol-hint--show-hint)
@@ -398,6 +400,8 @@ of the window."
     (remove-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)
     (advice-remove 'helm-get-selection 'helm-symbol-hint--string-trim-right)
     (advice-remove 'helm-imenu-action
+                   #'helm-symbol-hint--advice-around-imenu-action)
+    (advice-remove 'helm-imenu-persistent-action
                    #'helm-symbol-hint--advice-around-imenu-action)))
 
 (provide 'helm-symbol-hint)
