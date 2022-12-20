@@ -5,6 +5,8 @@
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2021/04/10
 ;; Version: 0.1.0
+;; Last-Updated: 2022-12-20 10:16:15 +0800
+;;           by: Gong Qijian
 ;; Package-Requires: ((emacs "25.1") (popup "0.5.8") (helm "3.6.2"))
 ;; URL: https://github.com/twlz0ne/helm-symbol-hint
 ;; Keywords: tools
@@ -158,17 +160,22 @@ Each element of it is in the form of (MAJOR-MODE . TYPE-LIST), e.g.:
   "Return useful one-line documentation of SYMBOL-NAME."
   (let* ((symbol (intern symbol-name)))
     (if (fboundp symbol)
-        (let ((doc (documentation symbol t)))
+        (let ((doc (condition-case _err
+                       (documentation symbol t)
+                     (wrong-type-argument "[Failed to read document.]"))))
           (if (and doc (not (string-empty-p doc)))
               (elisp--docstring-first-line
                (string-trim-left
                 (replace-regexp-in-string helm-symbol-hint-advice-re "" doc)))
-            ;; function: (ARG) --> (fn ARG)
-            (replace-regexp-in-string (if (<= 28 emacs-major-version)
-                                          "^(\\(fn\s?\\)?"
-                                        (concat "^" symbol-name ": ("))
-                                      "(fn "
-                                      (elisp-get-fnsym-args-string symbol))))
+            (let ((arg-str (elisp-get-fnsym-args-string symbol)))
+              (if arg-str
+                  ;; function: (ARG) --> (fn ARG)
+                  (replace-regexp-in-string (if (<= 28 emacs-major-version)
+                                                "^(\\(fn\s?\\)?"
+                                              (concat "^" symbol-name ": ("))
+                                            "(fn "
+                                            arg-str)
+                "Not documented."))))
       (or (let ((doc (documentation-property symbol 'variable-documentation t)))
             (elisp--docstring-first-line doc))
           "Not documented."))))
