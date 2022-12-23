@@ -5,7 +5,7 @@
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2021/04/10
 ;; Version: 0.1.0
-;; Last-Updated: 2022-12-20 10:16:15 +0800
+;; Last-Updated: 2022-12-23 11:24:20 +0800
 ;;           by: Gong Qijian
 ;; Package-Requires: ((emacs "25.1") (popup "0.5.8") (helm "3.6.2"))
 ;; URL: https://github.com/twlz0ne/helm-symbol-hint
@@ -257,7 +257,7 @@ Each element of it is in the form of (MAJOR-MODE . TYPE-LIST), e.g.:
                         :around nil
                         :point (save-excursion
                                  (end-of-visual-line) (point)))
-                     (eldoc-message hint))))))))))
+                     (funcall eldoc-message-function hint))))))))))
 
 (defun helm-symbol-hint--show-all (&optional scroll-p)
   "Show all symbol hints.
@@ -309,21 +309,21 @@ If SCROLL-P not nil, consider as mouse wheel scrolling."
                        (sym-str (helm-symbol-hint--current-symbol-name))
                        (not-empty-p (not (string-empty-p sym-str))))
               (setq key-str nil)
-              (unless (funcall check-hint-fn (point-at-eol))
+              (unless (funcall check-hint-fn (line-end-position))
                 (add-text-properties
-                 (point-at-bol) (point-at-eol) (list 'helm-realvalue sym-str))
-                (goto-char (point-at-eol))
+                 (line-beginning-position) (line-end-position) (list 'helm-realvalue sym-str))
+                (goto-char (line-end-position))
                 (when-let* ((hint (funcall hint-method sym-str))
                             (disp (if key-str
                                       (concat sym-str "  " key-str)
                                     (helm-symbol-hint--current-symbol-display)))
                             (padding-width (- sym-width
                                               (if key-str (1- (length key-str)) 0)
-                                              (- (point-at-eol) (point-at-bol) 1))))
+                                              (- (line-end-position) (line-beginning-position) 1))))
                   (if (< 1 padding-width)
                       (insert (make-string padding-width ?\s))
                     (add-text-properties
-                     (point-at-eol) (point-at-bol)
+                     (line-end-position) (line-beginning-position)
                      (list 'display
                            (propertize
                             (truncate-string-to-width
@@ -364,10 +364,10 @@ of the window."
 
 (defun helm-symbol-hint--current-symbol-name ()
   "Return the name of current selected symbol."
-  (let ((v (get-text-property (point-at-bol) 'helm-realvalue)))
+  (let ((v (get-text-property (line-beginning-position) 'helm-realvalue)))
     (cond ((null v)
            (string-trim-right
-            (buffer-substring-no-properties (point-at-bol) (point-at-eol))))
+            (buffer-substring-no-properties (line-beginning-position) (line-end-position))))
           ((stringp v) v)
           ((and (consp v) (stringp (car v))) ;; Imenu item
            (propertize (car v) 'position (cdr v)))
@@ -381,12 +381,13 @@ of the window."
 
 (defun helm-symbol-hint--current-symbol-display ()
   "Return the display of current selected symbol."
-  (buffer-substring (point-at-bol) (point-at-eol)))
+  (buffer-substring (line-beginning-position) (line-end-position)))
 
 ;;;###autoload
 (define-minor-mode helm-symbol-hint-mode
   "Show symbol hint for helm."
   :global t
+  :group 'helm-symbol-hint
   (if helm-symbol-hint-mode
       (progn
         (add-hook 'helm-after-update-hook #'helm-symbol-hint--prepare)
