@@ -46,7 +46,7 @@ jobs:
     - name: Set up Cask
       uses: conao3/setup-cask@master
       with:
-        version: 0.8.6
+        version: 'snapshot'
 
     - name: Check out the source code
       uses: actions/checkout@v2
