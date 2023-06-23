@@ -19,28 +19,13 @@ Just =M-x helm-symbol-hint-mode RET=.
 
 * Customization
 
-- =helm-symbol-hint-style= (default =grid=)
-
-  Specify how the symbol hint display.
-
-  - =grid= Show all symbol hints at once.
-
-    [[file:./images/grid.png]]
-
-  - =popup= Show current symbol hint in popup.
-
-    [[file:./images/popup.png]]
-
-  - =echo= Show current symbol hint in echo area.
-
-    [[file:./images/echo.png]]
-
 - =helm-symbol-hint-delay= (default =0.5=)
 
-  Seconds to wait before start popup/echo timer.
+  Seconds to wait before show current value in echo area.
+  Nil means don't show current value.
 
-- =helm-symbol-hint-grid-spec= (defualt =(0.3 . helm-buffer-size)=)
+- =helm-symbol-hint-window-spec= (defualt =(0.3 . helm-buffer-size)=)
 
-  Specification of symbol hint grid.
+  Specification of symbol hint window.
   It is in the form of (SYMBOL-WIDTH . HINT-FACE).  SYMBOL-WIDTH is a float
   number from 0.0 to 1.0 meas the percentage of the window width.

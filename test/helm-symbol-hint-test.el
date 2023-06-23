@@ -18,6 +18,8 @@
 ;;; Code:
 
 (require 'ert)
+;; Fix Error: file-missing ("Cannot open load file" "No such file or directory"
+(add-to-list 'load-path (concat (file-name-directory (or load-file-name buffer-file-name)) ".."))
 (require 'helm-symbol-hint)
 
 

@@ -5,9 +5,9 @@
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2021/04/10
 ;; Version: 0.1.0
-;; Last-Updated: 2022-12-23 11:24:20 +0800
+;; Last-Updated: 2023-06-23 22:21:23 +0800
 ;;           by: Gong Qijian
-;; Package-Requires: ((emacs "25.1") (popup "0.5.8") (helm "3.6.2"))
+;; Package-Requires: ((emacs "25.1") (helm "3.6.2"))
 ;; URL: https://github.com/twlz0ne/helm-symbol-hint
 ;; Keywords: tools
 
@@ -43,21 +43,14 @@
 ;;
 ;; * Customization
 ;;
-;; - =helm-symbol-hint-style= (default =grid=)
-;;
-;;   Specify how the symbol hint display.
-;;
-;;   - =grid= Show all symbol hints at once.
-;;   - =popup= Show current symbol hint in popup.
-;;   - =echo= Show current symbol hint in echo area.
-;;
 ;; - =helm-symbol-hint-delay= (default =0.5=)
 ;;
-;;   Seconds to wait before start popup/echo timer.
+;;   Seconds to wait before show current in echo area.
+;;   Nil means don't show current value.
 ;;
-;; - =helm-symbol-hint-grid-spec= (defualt =(0.3 . helm-buffer-size)=)
+;; - =helm-symbol-hint-window-spec= (defualt =(0.3 . helm-buffer-size)=)
 ;;
-;;   Specification of symbol hint grid.
+;;   Specification of symbol hint window.
 ;;   It is in the form of (SYMBOL-WIDTH . HINT-FACE).  SYMBOL-WIDTH is a float
 ;;   number from 0.0 to 1.0 meas the percentage of the window width.
 
@@ -68,21 +61,15 @@
 ;;; Code:
 
 (require 'subr-x)
-(require 'popup)
 (require 'helm)
 
-(defface helm-symbol-hint-face
-  '((t (:inherit popup-tip-face :slant italic)))
-  "Face for helm symbol hint."
-  :group 'helm-symbol-hint)
-
 (defvar helm-symbol-hint-source-method-alist
-  '(("Emacs Commands history" . helm-symbol-hint--symbol-summary)
-    ("Emacs Commands"         . helm-symbol-hint--symbol-summary)
-    ("describe-function"      . helm-symbol-hint--symbol-summary)
-    ("describe-variable"      . helm-symbol-hint--symbol-summary)
-    ("describe-command"       . helm-symbol-hint--symbol-summary)
-    ("completion-at-point"    . helm-symbol-hint--symbol-summary)
+  '(("Emacs Commands history" . helm-symbol-hint--function-summary)
+    ("Emacs Commands"         . helm-symbol-hint--function-summary)
+    ("describe-function"      . helm-symbol-hint--function-summary)
+    ("describe-variable"      . helm-symbol-hint--variable-summary)
+    ("describe-command"       . helm-symbol-hint--function-summary)
+    ("completion-at-point"    . helm-symbol-hint--function-summary)
     ("Imenu"                  . helm-symbol-hint--imenu-function-hint)
     ("describe-package"       . helm-symbol-hint--package-summary)
     ("package-install"        . helm-symbol-hint--package-summary)
@@ -90,8 +77,14 @@
     ("package-delete"         . helm-symbol-hint--installed-package-summary))
   "A list of (HELM-SOURCE . SUMMARY-METHOD).")
 
+(defvar helm-symbol-hint-show-current-sources
+  '("describe-variable" "describe-function" "describe-command")
+  "A list of source enable current value in echo area.")
+
 (defcustom helm-symbol-hint-delay 0.5
-  "Seconds to wait before start popup/echo timer."
+  "Seconds to wait before show current value in echo area.
+
+Nil means don't show current value."
   :group 'helm-symbol-hint
   :type 'float)
 
@@ -113,17 +106,9 @@
       "\n")
   "Regexp to match the advice in documentation.")
 
-(defcustom helm-symbol-hint-style 'grid
-  "Specify how the symbol hint display."
-  :group 'helm-symbol-hint
-  :type '(choice
-          (const :tag "Show all symbol hints at once" grid)
-          (const :tag "Show current symbol hint in popup" popup)
-          (const :tag "Show current symbol hint in echo area" echo)))
-
-(defcustom helm-symbol-hint-grid-spec
+(defcustom helm-symbol-hint-window-spec
   '(0.3 . helm-buffer-size)
-  "Specification of symbol hint grid.
+  "Specification of symbol hint window.
 It is in the form of (SYMBOL-WIDTH . HINT-FACE).  SYMBOL-WIDTH is a float number
 from 0.0 to 1.0 meas the percentage of the window width."
   :group 'helm-symbol-hint
@@ -156,29 +141,43 @@ Each element of it is in the form of (MAJOR-MODE . TYPE-LIST), e.g.:
   (assoc-default (assoc-default 'name (helm-get-current-source))
                  helm-symbol-hint-source-method-alist))
 
-(defun helm-symbol-hint--symbol-summary (symbol-name)
-  "Return useful one-line documentation of SYMBOL-NAME."
-  (let* ((symbol (intern symbol-name)))
-    (if (fboundp symbol)
-        (let ((doc (condition-case _err
-                       (documentation symbol t)
-                     (wrong-type-argument "[Failed to read document.]"))))
-          (if (and doc (not (string-empty-p doc)))
-              (elisp--docstring-first-line
-               (string-trim-left
-                (replace-regexp-in-string helm-symbol-hint-advice-re "" doc)))
-            (let ((arg-str (elisp-get-fnsym-args-string symbol)))
-              (if arg-str
-                  ;; function: (ARG) --> (fn ARG)
-                  (replace-regexp-in-string (if (<= 28 emacs-major-version)
-                                                "^(\\(fn\s?\\)?"
-                                              (concat "^" symbol-name ": ("))
-                                            "(fn "
-                                            arg-str)
-                "Not documented."))))
+(defvar helm-symbol-hint--echo-string-p nil)
+
+(defvar helm-symbol-hint--preselected-p nil "A non-first candidate is pre-selected.")
+
+(defun helm-symbol-hint--variable-summary (symbol-name)
+  "Return useful one-line documentation of variable SYMBOL-NAME."
+  (let ((symbol (intern symbol-name)))
+    (if helm-symbol-hint--echo-string-p
+        (concat "Value: "
+                (let ((val (or (buffer-local-value symbol (current-buffer))
+                               (symbol-value symbol))))
+                  (if (stringp val) val (format "%S" val))))
       (or (let ((doc (documentation-property symbol 'variable-documentation t)))
             (elisp--docstring-first-line doc))
           "Not documented."))))
+
+(defun helm-symbol-hint--function-summary (symbol-name)
+  "Return useful one-line documentation of function SYMBOL-NAME."
+  (let* ((symbol (intern symbol-name)))
+    (if helm-symbol-hint--echo-string-p
+        (concat "Arg: " (elisp-get-fnsym-args-string symbol))
+      (let ((doc (condition-case _err
+                     (documentation symbol t)
+                   (wrong-type-argument "[Failed to read document.]"))))
+        (if (and doc (not (string-empty-p doc)))
+            (elisp--docstring-first-line
+             (string-trim-left
+              (replace-regexp-in-string helm-symbol-hint-advice-re "" doc)))
+          (let ((arg-str (elisp-get-fnsym-args-string symbol)))
+            (if arg-str
+                ;; function: (ARG) --> (fn ARG)
+                (replace-regexp-in-string (if (<= 28 emacs-major-version)
+                                              "^(\\(fn\s?\\)?"
+                                            (concat "^" symbol-name ": ("))
+                                          "(fn "
+                                          arg-str)
+              "Not documented.")))))))
 
 (defun helm-symbol-hint--imenu-function-hint (menu-item)
   "Return hint of function that MENU-ITEM pointed to."
@@ -226,13 +225,6 @@ Each element of it is in the form of (MAJOR-MODE . TYPE-LIST), e.g.:
     (cancel-timer helm-symbol-hint--timer)
     (setq helm-symbol-hint--timer nil)))
 
-(defvar helm-symbol-hint-indicator
-  (propertize
-   " " 'face `(:foreground ,(face-background 'helm-symbol-hint-face nil t)
-                :background ,(face-background 'helm-selection)
-                :slant italic))
-  "String to indicate the hint.")
-
 (defun helm-symbol-hint--show-current ()
   "Start the symbol hint timer."
   (helm-symbol-hint-cancel-timer)
@@ -244,29 +236,32 @@ Each element of it is in the form of (MAJOR-MODE . TYPE-LIST), e.g.:
              (save-selected-window
                (with-helm-window
                  (when-let
-                     ((sym-str (helm-symbol-hint--current-symbol-name))
+                     ((helm-symbol-hint--echo-string-p t)
+                      (sym-str (helm-symbol-hint--current-symbol-name))
                       (not-empty-p (not (string-empty-p sym-str)))
                       (hint-method (helm-symbol-hint--hint-method))
-                      (hint (funcall hint-method (string-trim-right sym-str))))
-                   (if (equal helm-symbol-hint-style 'popup)
-                       (popup-tip
-                        (concat helm-symbol-hint-indicator
-                                (propertize " " 'face nil)
-                                (propertize hint 'face 'helm-symbol-hint-face))
-                        :nostrip t
-                        :around nil
-                        :point (save-excursion
-                                 (end-of-visual-line) (point)))
-                     (funcall eldoc-message-function hint))))))))))
+                      (hint
+                       (with-current-buffer helm-current-buffer
+                         (funcall hint-method (string-trim-right sym-str)))))
+                   ;; (message "==> \tsym-str: %s \n\tmethod: %s \n\thint: %s" sym-str hint-method hint)
+                   ;; (message "==> minibuffer prompt: %s input: %s" (minibuffer-prompt) helm-input)
+                   (funcall eldoc-message-function
+                            (truncate-string-to-width
+                             hint
+                             (- (window-text-width (minibuffer-window))
+                                (length (minibuffer-prompt))
+                                (length helm-input)
+                                4)
+                             nil nil t))))))))))
 
 (defun helm-symbol-hint--show-all (&optional scroll-p)
   "Show all symbol hints.
 If SCROLL-P not nil, consider as mouse wheel scrolling."
-  (let* ((face (cdr helm-symbol-hint-grid-spec))
+  (let* ((face (cdr helm-symbol-hint-window-spec))
          (hint-method (helm-symbol-hint--hint-method))
          (window-end (if (< (window-end) 0) (1+ (buffer-size)) (window-end)))
          (sym-width
-          (round (* (car helm-symbol-hint-grid-spec) (window-width))))
+          (round (* (car helm-symbol-hint-window-spec) (window-width))))
          (init-p (or (and (= (point-max) window-end)
                           (= (point-min) (window-start)))
                      (and (not this-command)
@@ -340,10 +335,11 @@ If SCROLL-P not nil, consider as mouse wheel scrolling."
 If SCROLL-P not nil, consider as mouse wheel scrolling."
   (when (and helm-alive-p (helm-symbol-hint--hint-method))
     (with-helm-window
-      (if (equal helm-symbol-hint-style 'grid)
-          (unless (zerop (buffer-size))
-            (helm-symbol-hint--show-all scroll-p))
-        (helm-symbol-hint--show-current)))))
+      (helm-symbol-hint--show-all scroll-p)
+      (when (member (assoc-default 'name (helm-get-current-source))
+                    helm-symbol-hint-show-current-sources)
+        (when helm-symbol-hint-delay
+          (helm-symbol-hint--show-current))))))
 
 (defun helm-symbol-hint--window-scroll (window start)
   "Function to be used in `window-scroll-functions'.
