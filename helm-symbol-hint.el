@@ -5,7 +5,7 @@
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2021/04/10
 ;; Version: 0.1.0
-;; Last-Updated: 2023-06-23 22:21:23 +0800
+;; Last-Updated: 2023-09-04 10:32:29 +0800
 ;;           by: Gong Qijian
 ;; Package-Requires: ((emacs "25.1") (helm "3.6.2"))
 ;; URL: https://github.com/twlz0ne/helm-symbol-hint
@@ -259,6 +259,7 @@ Each element of it is in the form of (MAJOR-MODE . TYPE-LIST), e.g.:
 If SCROLL-P not nil, consider as mouse wheel scrolling."
   (let* ((face (cdr helm-symbol-hint-window-spec))
          (hint-method (helm-symbol-hint--hint-method))
+         (scroll-p (or scroll-p helm-symbol-hint--preselected-p))
          (window-end (if (< (window-end) 0) (1+ (buffer-size)) (window-end)))
          (sym-width
           (round (* (car helm-symbol-hint-window-spec) (window-width))))
@@ -272,7 +273,7 @@ If SCROLL-P not nil, consider as mouse wheel scrolling."
                                        helm-end-of-buffer)))))
          (line-move-step (if draw-down-p 1 -1))
          (point-at-edge-p
-          (if init-p nil
+          (if (or init-p helm-symbol-hint--preselected-p)  nil
             (<= (if draw-down-p
                     (- (line-number-at-pos window-end) (line-number-at-pos))
                   (- (line-number-at-pos) (line-number-at-pos (window-start))))
@@ -297,7 +298,9 @@ If SCROLL-P not nil, consider as mouse wheel scrolling."
       (save-excursion
         (catch 'break
           (when scroll-p
-            (goto-char (window-start)))
+            (goto-char (window-start))
+            (when (helm-pos-header-line-p)
+              (forward-line 1)))
           (while (< num max)
             (cl-incf num)
             (when-let ((not-header-p (not (helm-pos-header-line-p) ))
@@ -350,13 +353,22 @@ of the window."
       (let ((last-start helm-symbol-hint--last-window-start))
         (setq helm-symbol-hint--last-window-start start)
         (when (and last-start (not (equal last-start start)))
-          (helm-symbol-hint--show-hint t))))))
+          (helm-symbol-hint--show-hint t)
+          (setq helm-symbol-hint--preselected-p nil))))))
 
 (defun helm-symbol-hint--prepare ()
   "Function to be used in `helm-after-update-hook' to do some preparations."
   (when (and helm-alive-p (helm-symbol-hint--hint-method))
     (with-helm-buffer
       (setq-local truncate-lines t))))
+
+(defun helm-symbol-hint--after-preselect ()
+  "Function to be use in `helm-after-preselection-hook'.
+
+For situations (e.g. invoking the iemnu inside a function) that a non-first
+candidate is pre-selected."
+  (when (> (with-helm-buffer (line-number-at-pos)) 1)
+    (setq helm-symbol-hint--preselected-p t)))
 
 (defun helm-symbol-hint--current-symbol-name ()
   "Return the name of current selected symbol."
@@ -391,6 +403,7 @@ of the window."
         (add-hook 'helm-move-selection-after-hook 'helm-symbol-hint--show-hint)
         (add-hook 'window-scroll-functions 'helm-symbol-hint--window-scroll)
         (add-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)
+        (add-hook 'helm-after-preselection-hook 'helm-symbol-hint--after-preselect)
         (advice-add 'helm-get-selection :filter-return
                     'helm-symbol-hint--string-trim-right)
         (advice-add 'helm-imenu-action
@@ -402,6 +415,7 @@ of the window."
     (remove-hook 'helm-move-selection-after-hook 'helm-symbol-hint--show-hint)
     (remove-hook 'window-scroll-functions 'helm-symbol-hint--window-scroll)
     (remove-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)
+    (remove-hook 'helm-after-preselection-hook 'helm-symbol-hint--after-preselect)
     (advice-remove 'helm-get-selection 'helm-symbol-hint--string-trim-right)
     (advice-remove 'helm-imenu-action
                    #'helm-symbol-hint--advice-around-imenu-action)
