@@ -56,15 +56,15 @@
 ;;; tests
 
 (ert-deftest helm-symbol-hint-test--symbol-summary ()
-  (should (equal "Not documented."      (helm-symbol-hint--symbol-summary "var-not-documented")))
-  (should (equal "(fn )"                (helm-symbol-hint--symbol-summary "fn-not-documented")))
-  (should (equal "(fn ARG1)"            (helm-symbol-hint--symbol-summary "fn-not-documented-1")))
-  (should (equal "(fn ARG1 ARG2)"       (helm-symbol-hint--symbol-summary "fn-not-documented-2")))
-  (should (equal "(fn ARG1 ARG2 ARG3)"  (helm-symbol-hint--symbol-summary "fn-not-documented-3")))
-  (should (equal "This is a Function"   (helm-symbol-hint--symbol-summary "fn-documented")))
-  (should (equal "This is a Function 1" (helm-symbol-hint--symbol-summary "fn-documented-1")))
-  (should (equal "This is a Function 2" (helm-symbol-hint--symbol-summary "fn-documented-2")))
-  (should (equal "This is a Function 3" (helm-symbol-hint--symbol-summary "fn-documented-3")))
+  (should (equal "Not documented."      (helm-symbol-hint--variable-summary "var-not-documented")))
+  (should (equal "(fn )"                (helm-symbol-hint--function-summary "fn-not-documented")))
+  (should (equal "(fn ARG1)"            (helm-symbol-hint--function-summary "fn-not-documented-1")))
+  (should (equal "(fn ARG1 ARG2)"       (helm-symbol-hint--function-summary "fn-not-documented-2")))
+  (should (equal "(fn ARG1 ARG2 ARG3)"  (helm-symbol-hint--function-summary "fn-not-documented-3")))
+  (should (equal "This is a Function"   (helm-symbol-hint--function-summary "fn-documented")))
+  (should (equal "This is a Function 1" (helm-symbol-hint--function-summary "fn-documented-1")))
+  (should (equal "This is a Function 2" (helm-symbol-hint--function-summary "fn-documented-2")))
+  (should (equal "This is a Function 3" (helm-symbol-hint--function-summary "fn-documented-3")))
 
   ;; full document
   (should (string-match-p "\
@@ -89,7 +89,7 @@ This is a Function
 (fn)") (documentation 'fn-documented t)))
 
   ;; still get correct hint
-  (should (equal "This is a Function" (helm-symbol-hint--symbol-summary "fn-documented"))))
+  (should (equal "This is a Function" (helm-symbol-hint--function-summary "fn-documented"))))
 
 (ert-deftest helm-symbol-hint-test--package-summary ()
   (require 'package)
