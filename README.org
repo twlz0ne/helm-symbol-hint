@@ -4,6 +4,17 @@
 
 Show symbol hint for Helm.
 
+#+CAPTION: =M-x=
+[[file:./images/1.M-x.png]]
+#+CAPTION: =describe-function= with current arguments showing in echo area.
+[[file:./images/2.describe-function.png]]
+#+CAPTION: =describe-variable= with current value showing in echo area
+[[file:./images/3.describe-variable.png]]
+#+CAPTION: =describe-package=
+[[file:./images/4.describe-package.png]]
+#+CAPTION: =Imenu= with generic method arguments showing on the right side.
+[[file:./images/5.Imenu.png]]
+
 * Installation
 
 #+begin_src emacs-lisp
