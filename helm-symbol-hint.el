@@ -5,7 +5,7 @@
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2021/04/10
 ;; Version: 0.1.0
-;; Last-Updated: 2023-09-04 10:32:29 +0800
+;; Last-Updated: 2023-10-31 11:28:47 +0800
 ;;           by: Gong Qijian
 ;; Package-Requires: ((emacs "25.1") (helm "3.6.2"))
 ;; URL: https://github.com/twlz0ne/helm-symbol-hint
@@ -145,6 +145,9 @@ Each element of it is in the form of (MAJOR-MODE . TYPE-LIST), e.g.:
 
 (defvar helm-symbol-hint--preselected-p nil "A non-first candidate is pre-selected.")
 
+(defvar helm-symbol-hint--method nil)
+(defvar helm-symbol-hint--source nil)
+
 (defun helm-symbol-hint--variable-summary (symbol-name)
   "Return useful one-line documentation of variable SYMBOL-NAME."
   (let ((symbol (intern symbol-name)))
@@ -258,7 +261,7 @@ Each element of it is in the form of (MAJOR-MODE . TYPE-LIST), e.g.:
   "Show all symbol hints.
 If SCROLL-P not nil, consider as mouse wheel scrolling."
   (let* ((face (cdr helm-symbol-hint-window-spec))
-         (hint-method (helm-symbol-hint--hint-method))
+         (hint-method helm-symbol-hint--method)
          (scroll-p (or scroll-p helm-symbol-hint--preselected-p))
          (window-end (if (< (window-end) 0) (1+ (buffer-size)) (window-end)))
          (sym-width
@@ -338,6 +341,31 @@ If SCROLL-P not nil, consider as mouse wheel scrolling."
 If SCROLL-P not nil, consider as mouse wheel scrolling."
   (when (and helm-alive-p (helm-symbol-hint--hint-method))
     (with-helm-window
+      (unless (equal (and helm-symbol-hint--source
+                          (assoc-default 'name helm-symbol-hint--source))
+                     (assoc-default 'name (helm-get-current-source)))
+        (setq helm-symbol-hint--method (helm-symbol-hint--hint-method)))
+      (setq helm-symbol-hint--source (helm-get-current-source))
+      (helm-symbol-hint--show-all scroll-p)
+      (when (member (assoc-default 'name (helm-get-current-source))
+                    helm-symbol-hint-show-current-sources)
+        (when helm-symbol-hint-delay
+          (helm-symbol-hint--show-current))))))
+
+(defun helm-symbol-hint--show-hint-cap (&optional scroll-p)
+  "Show hint for source `completing-at-point'.
+If SCROLL-P not nil, consider as mouse wheel scrolling."
+  (when (and helm-alive-p (helm-symbol-hint--hint-method))
+    (with-helm-window
+      (setq helm-symbol-hint--method
+            (lambda (symbol-name)
+              (let ((symbol (intern symbol-name)))
+                (cond
+                 ((functionp symbol)
+                  (helm-symbol-hint--function-summary symbol-name))
+                 ((keywordp symbol) "Not documented.")
+                 (t (helm-symbol-hint--variable-summary symbol-name))))))
+      (setq helm-symbol-hint--source (helm-get-current-source))
       (helm-symbol-hint--show-all scroll-p)
       (when (member (assoc-default 'name (helm-get-current-source))
                     helm-symbol-hint-show-current-sources)
@@ -399,7 +427,7 @@ candidate is pre-selected."
   (if helm-symbol-hint-mode
       (progn
         (add-hook 'helm-after-update-hook #'helm-symbol-hint--prepare)
-        (add-hook 'helm-minibuffer-set-up-hook 'helm-symbol-hint--show-hint)
+        (add-hook 'helm-minibuffer-set-up-hook 'helm-symbol-hint--show-hint-cap)
         (add-hook 'helm-move-selection-after-hook 'helm-symbol-hint--show-hint)
         (add-hook 'window-scroll-functions 'helm-symbol-hint--window-scroll)
         (add-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)
@@ -411,7 +439,7 @@ candidate is pre-selected."
         (advice-add 'helm-imenu-persistent-action
                     :around #'helm-symbol-hint--advice-around-imenu-action))
     (remove-hook 'helm-after-update-hook #'helm-symbol-hint--prepare)
-    (remove-hook 'helm-minibuffer-set-up-hook 'helm-symbol-hint--show-hint)
+    (remove-hook 'helm-minibuffer-set-up-hook 'helm-symbol-hint--show-hint-cap)
     (remove-hook 'helm-move-selection-after-hook 'helm-symbol-hint--show-hint)
     (remove-hook 'window-scroll-functions 'helm-symbol-hint--window-scroll)
     (remove-hook 'helm-cleanup-hook 'helm-symbol-hint-cancel-timer)
